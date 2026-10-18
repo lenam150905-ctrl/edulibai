@@ -1,0 +1,476 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model AccessRequest {
+  AccessRequestId                                BigInt    @id(map: "PK_AccessRequest") @default(autoincrement())
+  DocumentId                                     BigInt
+  RequesterSchoolId                              BigInt
+  RequesterUserId                                BigInt
+  OwnerSchoolId                                  BigInt
+  Reason                                         String?
+  Status                                         String    @default("PENDING", map: "DF_AccessRequest_Status") @db.VarChar(20)
+  ReviewedBy                                     BigInt?
+  ReviewedAt                                     DateTime?
+  CreatedAt                                      DateTime  @default(dbgenerated("sysdatetime()"), map: "DF_AccessRequest_CreatedAt")
+  Document                                       Document  @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_AccessRequest_Document")
+  School_AccessRequest_OwnerSchoolIdToSchool     School    @relation("AccessRequest_OwnerSchoolIdToSchool", fields: [OwnerSchoolId], references: [SchoolId], onUpdate: NoAction, map: "FK_AccessRequest_OwnerSchool")
+  School_AccessRequest_RequesterSchoolIdToSchool School    @relation("AccessRequest_RequesterSchoolIdToSchool", fields: [RequesterSchoolId], references: [SchoolId], onUpdate: NoAction, map: "FK_AccessRequest_RequesterSchool")
+  User_AccessRequest_RequesterUserIdToUser       User      @relation("AccessRequest_RequesterUserIdToUser", fields: [RequesterUserId], references: [UserId], onUpdate: NoAction, map: "FK_AccessRequest_RequesterUser")
+  User_AccessRequest_ReviewedByToUser            User?     @relation("AccessRequest_ReviewedByToUser", fields: [ReviewedBy], references: [UserId], onDelete: NoAction, onUpdate: NoAction, map: "FK_AccessRequest_Reviewer")
+
+  @@index([DocumentId, Status], map: "IX_AccessRequest_Document_Status")
+  @@index([RequesterSchoolId, Status], map: "IX_AccessRequest_RequesterSchool_Status")
+}
+
+model Author {
+  AuthorId       BigInt           @id(map: "PK_Author") @default(autoincrement())
+  AuthorCode     String?          @unique(map: "UQ_Author_AuthorCode") @db.VarChar(8)
+  FullName       String           @db.NVarChar(150)
+  Biography      String?          @db.NVarChar(Max)
+  DocumentAuthor DocumentAuthor[]
+}
+
+model Category {
+  CategoryId       BigInt     @id(map: "PK_Category") @default(autoincrement())
+  CategoryCode     String?    @unique(map: "UQ_Category_CategoryCode") @db.VarChar(8)
+  SchoolId         BigInt?
+  ParentCategoryId BigInt?
+  CategoryName     String     @db.NVarChar(150)
+  Description      String?    @db.NVarChar(500)
+  IsActive         Boolean    @default(true, map: "DF_Category_IsActive")
+  Category         Category?  @relation("CategoryToCategory", fields: [ParentCategoryId], references: [CategoryId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Category_Parent")
+  other_Category   Category[] @relation("CategoryToCategory")
+  School           School?    @relation(fields: [SchoolId], references: [SchoolId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Category_School")
+
+  @@index([SchoolId, ParentCategoryId], map: "IX_Category_SchoolId_Parent")
+}
+
+model Collection {
+  CollectionId       BigInt               @id(map: "PK_Collection") @default(autoincrement())
+  CollectionCode     String?              @unique(map: "UQ_Collection_Code") @db.VarChar(8)
+  UserId             BigInt
+  SchoolId           BigInt
+  CollectionName     String               @db.NVarChar(150)
+  Description        String?              @db.NVarChar(500)
+  IsPublic           Boolean              @default(false, map: "DF_Collection_IsPublic")
+  CreatedAt          DateTime             @default(dbgenerated("sysdatetime()"), map: "DF_Collection_CreatedAt")
+  UpdatedAt          DateTime?
+  School             School               @relation(fields: [SchoolId], references: [SchoolId], onUpdate: NoAction, map: "FK_Collection_School")
+  User               User                 @relation(fields: [UserId], references: [UserId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Collection_User")
+  CollectionDocument CollectionDocument[]
+
+  @@index([UserId], map: "IX_Collection_UserId")
+}
+
+model CollectionDocument {
+  CollectionId BigInt
+  DocumentId   BigInt
+  AddedAt      DateTime   @default(dbgenerated("sysdatetime()"), map: "DF_CollectionDocument_AddedAt")
+  Collection   Collection @relation(fields: [CollectionId], references: [CollectionId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CollectionDocument_Collection")
+  Document     Document   @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CollectionDocument_Document")
+
+  @@id([CollectionId, DocumentId], map: "PK_CollectionDocument")
+  @@index([DocumentId, CollectionId], map: "IX_CollectionDocument_DocumentId")
+}
+
+model Conversation {
+  ConversationId      BigInt                @id(map: "PK_Conversation") @default(autoincrement())
+  UserId              BigInt
+  SchoolId            BigInt
+  Title               String?               @db.NVarChar(200)
+  CreatedAt           DateTime              @default(dbgenerated("sysdatetime()"), map: "DF_Conversation_CreatedAt")
+  UpdatedAt           DateTime?
+  School              School                @relation(fields: [SchoolId], references: [SchoolId], onUpdate: NoAction, map: "FK_Conversation_School")
+  User                User                  @relation(fields: [UserId], references: [UserId], onUpdate: NoAction, map: "FK_Conversation_User")
+  ConversationMessage ConversationMessage[]
+
+  @@index([UserId, UpdatedAt(sort: Desc)], map: "IX_Conversation_User_Updated")
+}
+
+model ConversationMessage {
+  MessageId      BigInt          @id(map: "PK_ConversationMessage") @default(autoincrement())
+  ConversationId BigInt
+  Role           String          @db.VarChar(20)
+  Content        String          @db.NVarChar(Max)
+  CreatedAt      DateTime        @default(dbgenerated("sysdatetime()"), map: "DF_ConversationMessage_CreatedAt")
+  Conversation   Conversation    @relation(fields: [ConversationId], references: [ConversationId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ConversationMessage_Conversation")
+  MessageSource  MessageSource[]
+
+  @@index([ConversationId, CreatedAt], map: "IX_ConversationMessage_Conversation_Created")
+}
+
+model Document {
+  DocumentId         BigInt               @id(map: "PK_Document") @default(autoincrement())
+  DocumentCode       String?              @unique(map: "UQ_Document_DocumentCode") @db.VarChar(8)
+  SchoolId           BigInt
+  DocumentTypeId     BigInt
+  Title              String               @db.NVarChar(300)
+  Description        String?              @db.NVarChar(Max)
+  ISBN               String?              @db.VarChar(30)
+  Publisher          String?              @db.NVarChar(200)
+  PublicationYear    Int?                 @db.SmallInt
+  LanguageCode       String?              @db.VarChar(10)
+  PageCount          Int?
+  CoverImageUrl      String?              @db.VarChar(500)
+  OwnerUserId        BigInt
+  Status             String               @default("ACTIVE", map: "DF_Document_Status") @db.VarChar(20)
+  Visibility         String               @default("SCHOOL", map: "DF_Document_Visibility") @db.VarChar(20)
+  CreatedAt          DateTime             @default(dbgenerated("sysdatetime()"), map: "DF_Document_CreatedAt")
+  UpdatedAt          DateTime?
+  AccessRequest      AccessRequest[]
+  CollectionDocument CollectionDocument[]
+  User               User                 @relation(fields: [OwnerUserId], references: [UserId], onUpdate: NoAction, map: "FK_Document_Owner")
+  School             School               @relation(fields: [SchoolId], references: [SchoolId], onUpdate: NoAction, map: "FK_Document_School")
+  DocumentType       DocumentType         @relation(fields: [DocumentTypeId], references: [DocumentTypeId], onUpdate: NoAction, map: "FK_Document_Type")
+  DocumentAccess     DocumentAccess[]
+  DocumentAuthor     DocumentAuthor[]
+  DocumentChunk      DocumentChunk[]
+  DocumentFile       DocumentFile[]
+  DocumentProcessing DocumentProcessing[]
+  DocumentTag        DocumentTag[]
+  DocumentVersion    DocumentVersion[]
+  DownloadHistory    DownloadHistory[]
+  Favorite           Favorite[]
+  MessageSource      MessageSource[]
+  ReadingHistory     ReadingHistory[]
+
+  @@index([OwnerUserId], map: "IX_Document_OwnerUserId")
+  @@index([SchoolId, Status], map: "IX_Document_SchoolId_Status")
+  @@index([Title], map: "IX_Document_Title")
+}
+
+model DocumentAccess {
+  DocumentAccessId                    BigInt    @id(map: "PK_DocumentAccess") @default(autoincrement())
+  DocumentId                          BigInt
+  SchoolId                            BigInt?
+  UserId                              BigInt?
+  LicenseId                           BigInt?
+  AccessType                          String    @db.VarChar(30)
+  GrantedBy                           BigInt
+  GrantedAt                           DateTime  @default(dbgenerated("sysdatetime()"), map: "DF_DocumentAccess_GrantedAt")
+  ExpiredAt                           DateTime?
+  IsActive                            Boolean   @default(true, map: "DF_DocumentAccess_IsActive")
+  Document                            Document  @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentAccess_Document")
+  User_DocumentAccess_GrantedByToUser User      @relation("DocumentAccess_GrantedByToUser", fields: [GrantedBy], references: [UserId], onUpdate: NoAction, map: "FK_DocumentAccess_GrantedBy")
+  License                             License?  @relation(fields: [LicenseId], references: [LicenseId], onDelete: NoAction, onUpdate: NoAction, map: "FK_DocumentAccess_License")
+  School                              School?   @relation(fields: [SchoolId], references: [SchoolId], onDelete: NoAction, onUpdate: NoAction, map: "FK_DocumentAccess_School")
+  User_DocumentAccess_UserIdToUser    User?     @relation("DocumentAccess_UserIdToUser", fields: [UserId], references: [UserId], onDelete: NoAction, onUpdate: NoAction, map: "FK_DocumentAccess_User")
+
+  @@index([DocumentId, IsActive], map: "IX_DocumentAccess_DocumentId")
+  @@index([SchoolId, IsActive], map: "IX_DocumentAccess_SchoolId")
+  @@index([UserId, IsActive], map: "IX_DocumentAccess_UserId")
+}
+
+model DocumentAuthor {
+  DocumentId  BigInt
+  AuthorId    BigInt
+  AuthorOrder Int      @default(1, map: "DF_DocumentAuthor_AuthorOrder")
+  Author      Author   @relation(fields: [AuthorId], references: [AuthorId], onUpdate: NoAction, map: "FK_DocumentAuthor_Author")
+  Document    Document @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentAuthor_Document")
+
+  @@id([DocumentId, AuthorId], map: "PK_DocumentAuthor")
+  @@index([AuthorId, DocumentId], map: "IX_DocumentAuthor_AuthorId")
+}
+
+model DocumentChunk {
+  ChunkId           BigInt           @id(map: "PK_DocumentChunk") @default(autoincrement())
+  DocumentId        BigInt
+  DocumentVersionId BigInt?
+  ChunkIndex        Int
+  Content           String           @db.NVarChar(Max)
+  PageNumber        Int?
+  StartPosition     Int?
+  EndPosition       Int?
+  TokenCount        Int?
+  CreatedAt         DateTime         @default(dbgenerated("sysdatetime()"), map: "DF_DocumentChunk_CreatedAt")
+  Document          Document         @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentChunk_Document")
+  DocumentVersion   DocumentVersion? @relation(fields: [DocumentVersionId], references: [DocumentVersionId], onDelete: NoAction, onUpdate: NoAction, map: "FK_DocumentChunk_Version")
+  Embedding         Embedding[]
+  MessageSource     MessageSource[]
+
+  @@unique([DocumentId, DocumentVersionId, ChunkIndex], map: "UQ_DocumentChunk_Index")
+  @@index([DocumentId, ChunkIndex], map: "IX_DocumentChunk_Document_Index")
+  @@index([DocumentVersionId, ChunkIndex], map: "IX_DocumentChunk_Version")
+}
+
+model DocumentFile {
+  DocumentFileId  BigInt            @id(map: "PK_DocumentFile") @default(autoincrement())
+  DocumentId      BigInt
+  FileName        String            @db.NVarChar(255)
+  StorageKey      String            @db.VarChar(500)
+  FileExtension   String            @db.VarChar(20)
+  MimeType        String?           @db.VarChar(100)
+  FileSizeBytes   BigInt?
+  Checksum        String?           @db.VarChar(128)
+  UploadedBy      BigInt
+  UploadedAt      DateTime          @default(dbgenerated("sysdatetime()"), map: "DF_DocumentFile_UploadedAt")
+  IsActive        Boolean           @default(true, map: "DF_DocumentFile_IsActive")
+  Document        Document          @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentFile_Document")
+  User            User              @relation(fields: [UploadedBy], references: [UserId], onUpdate: NoAction, map: "FK_DocumentFile_User")
+  DocumentVersion DocumentVersion[]
+  DownloadHistory DownloadHistory[]
+
+  @@index([DocumentId, IsActive], map: "IX_DocumentFile_DocumentId")
+}
+
+model DocumentProcessing {
+  ProcessingId      BigInt           @id(map: "PK_DocumentProcessing") @default(autoincrement())
+  DocumentId        BigInt
+  DocumentVersionId BigInt?
+  Status            String           @default("PENDING", map: "DF_DocumentProcessing_Status") @db.VarChar(20)
+  CurrentStep       String?          @db.VarChar(30)
+  ErrorMessage      String?          @db.NVarChar(2000)
+  StartedAt         DateTime?
+  CompletedAt       DateTime?
+  RetryCount        Int              @default(0, map: "DF_DocumentProcessing_RetryCount")
+  CreatedAt         DateTime         @default(dbgenerated("sysdatetime()"), map: "DF_DocumentProcessing_CreatedAt")
+  Document          Document         @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentProcessing_Document")
+  DocumentVersion   DocumentVersion? @relation(fields: [DocumentVersionId], references: [DocumentVersionId], onDelete: NoAction, onUpdate: NoAction, map: "FK_DocumentProcessing_Version")
+
+  @@index([DocumentId, Status], map: "IX_DocumentProcessing_Document_Status")
+}
+
+model DocumentTag {
+  DocumentId BigInt
+  TagId      BigInt
+  Document   Document @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentTag_Document")
+  Tag        Tag      @relation(fields: [TagId], references: [TagId], onUpdate: NoAction, map: "FK_DocumentTag_Tag")
+
+  @@id([DocumentId, TagId], map: "PK_DocumentTag")
+  @@index([TagId, DocumentId], map: "IX_DocumentTag_TagId")
+}
+
+model DocumentType {
+  DocumentTypeId BigInt     @id(map: "PK_DocumentType") @default(autoincrement())
+  TypeCode       String     @unique(map: "UQ_DocumentType_TypeCode") @db.VarChar(30)
+  TypeName       String     @db.NVarChar(100)
+  Description    String?    @db.NVarChar(500)
+  IsActive       Boolean    @default(true, map: "DF_DocumentType_IsActive")
+  Document       Document[]
+
+  @@index([TypeCode], map: "IX_DocumentType_TypeCode")
+}
+
+model DocumentVersion {
+  DocumentVersionId  BigInt               @id(map: "PK_DocumentVersion") @default(autoincrement())
+  DocumentId         BigInt
+  VersionNumber      Int
+  DocumentFileId     BigInt
+  ChangeNote         String?              @db.NVarChar(500)
+  CreatedBy          BigInt
+  CreatedAt          DateTime             @default(dbgenerated("sysdatetime()"), map: "DF_DocumentVersion_CreatedAt")
+  IsCurrent          Boolean              @default(true, map: "DF_DocumentVersion_IsCurrent")
+  DocumentChunk      DocumentChunk[]
+  DocumentProcessing DocumentProcessing[]
+  Document           Document             @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_DocumentVersion_Document")
+  DocumentFile       DocumentFile         @relation(fields: [DocumentFileId], references: [DocumentFileId], onUpdate: NoAction, map: "FK_DocumentVersion_File")
+  User               User                 @relation(fields: [CreatedBy], references: [UserId], onUpdate: NoAction, map: "FK_DocumentVersion_User")
+
+  @@unique([DocumentId, VersionNumber], map: "UQ_DocumentVersion_DocumentVersion")
+  @@index([DocumentId, IsCurrent], map: "IX_DocumentVersion_DocumentId_Current")
+}
+
+model DownloadHistory {
+  DownloadHistoryId BigInt       @id(map: "PK_DownloadHistory") @default(autoincrement())
+  UserId            BigInt
+  DocumentId        BigInt
+  DocumentFileId    BigInt
+  DownloadedAt      DateTime     @default(dbgenerated("sysdatetime()"), map: "DF_DownloadHistory_DownloadedAt")
+  Document          Document     @relation(fields: [DocumentId], references: [DocumentId], onUpdate: NoAction, map: "FK_DownloadHistory_Document")
+  DocumentFile      DocumentFile @relation(fields: [DocumentFileId], references: [DocumentFileId], onUpdate: NoAction, map: "FK_DownloadHistory_File")
+  User              User         @relation(fields: [UserId], references: [UserId], onUpdate: NoAction, map: "FK_DownloadHistory_User")
+
+  @@index([DocumentId, DownloadedAt(sort: Desc)], map: "IX_DownloadHistory_Document_Date")
+  @@index([UserId, DownloadedAt(sort: Desc)], map: "IX_DownloadHistory_User_Date")
+}
+
+model Embedding {
+  EmbeddingId   BigInt        @id(map: "PK_Embedding") @default(autoincrement())
+  ChunkId       BigInt
+  ModelName     String        @db.VarChar(100)
+  Dimension     Int
+  VectorData    Bytes
+  CreatedAt     DateTime      @default(dbgenerated("sysdatetime()"), map: "DF_Embedding_CreatedAt")
+  DocumentChunk DocumentChunk @relation(fields: [ChunkId], references: [ChunkId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Embedding_Chunk")
+
+  @@unique([ChunkId, ModelName], map: "UQ_Embedding_Chunk_Model")
+  @@index([ChunkId], map: "IX_Embedding_ChunkId")
+}
+
+model Favorite {
+  UserId     BigInt
+  DocumentId BigInt
+  CreatedAt  DateTime @default(dbgenerated("sysdatetime()"), map: "DF_Favorite_CreatedAt")
+  Document   Document @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Favorite_Document")
+  User       User     @relation(fields: [UserId], references: [UserId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Favorite_User")
+
+  @@id([UserId, DocumentId], map: "PK_Favorite")
+  @@index([DocumentId], map: "IX_Favorite_DocumentId")
+}
+
+model License {
+  LicenseId      BigInt           @id(map: "PK_License") @default(autoincrement())
+  LicenseCode    String           @unique(map: "UQ_License_Code") @db.VarChar(30)
+  LicenseName    String           @db.NVarChar(100)
+  LicenseType    String           @db.VarChar(30)
+  Description    String?          @db.NVarChar(500)
+  CanView        Boolean          @default(true, map: "DF_License_CanView")
+  CanDownload    Boolean          @default(false, map: "DF_License_CanDownload")
+  CanShare       Boolean          @default(false, map: "DF_License_CanShare")
+  CanUseForRAG   Boolean          @default(false, map: "DF_License_CanUseForRAG")
+  IsActive       Boolean          @default(true, map: "DF_License_IsActive")
+  DocumentAccess DocumentAccess[]
+}
+
+model MessageSource {
+  MessageSourceId     BigInt              @id(map: "PK_MessageSource") @default(autoincrement())
+  MessageId           BigInt
+  ChunkId             BigInt
+  DocumentId          BigInt
+  PageNumber          Int?
+  SourceRank          Int?
+  Score               Decimal?            @db.Decimal(18, 8)
+  CitationText        String?
+  DocumentChunk       DocumentChunk       @relation(fields: [ChunkId], references: [ChunkId], onUpdate: NoAction, map: "FK_MessageSource_Chunk")
+  Document            Document            @relation(fields: [DocumentId], references: [DocumentId], onUpdate: NoAction, map: "FK_MessageSource_Document")
+  ConversationMessage ConversationMessage @relation(fields: [MessageId], references: [MessageId], onDelete: Cascade, onUpdate: NoAction, map: "FK_MessageSource_Message")
+
+  @@index([MessageId, SourceRank], map: "IX_MessageSource_Message_Rank")
+}
+
+model Permission {
+  PermissionId   BigInt           @id(map: "PK_Permission") @default(autoincrement())
+  PermissionCode String           @unique(map: "UQ_Permission_Code") @db.VarChar(50)
+  PermissionName String           @db.NVarChar(100)
+  Description    String?          @db.NVarChar(500)
+  RolePermission RolePermission[]
+}
+
+model ReadingHistory {
+  ReadingHistoryId BigInt   @id(map: "PK_ReadingHistory") @default(autoincrement())
+  UserId           BigInt
+  DocumentId       BigInt
+  LastPage         Int?
+  ProgressPercent  Decimal? @db.Decimal(5, 2)
+  LastReadAt       DateTime @default(dbgenerated("sysdatetime()"), map: "DF_ReadingHistory_LastReadAt")
+  Document         Document @relation(fields: [DocumentId], references: [DocumentId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReadingHistory_Document")
+  User             User     @relation(fields: [UserId], references: [UserId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReadingHistory_User")
+
+  @@unique([UserId, DocumentId], map: "UQ_ReadingHistory_UserDocument")
+  @@index([UserId, LastReadAt(sort: Desc)], map: "IX_ReadingHistory_User_LastRead")
+}
+
+model Role {
+  RoleId         BigInt           @id(map: "PK_Role") @default(autoincrement())
+  RoleCode       String           @unique(map: "UQ_Role_RoleCode") @db.VarChar(30)
+  RoleName       String           @db.NVarChar(100)
+  Description    String?          @db.NVarChar(500)
+  RolePermission RolePermission[]
+  UserRole       UserRole[]
+}
+
+model RolePermission {
+  RoleId       BigInt
+  PermissionId BigInt
+  Permission   Permission @relation(fields: [PermissionId], references: [PermissionId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermission_Permission")
+  Role         Role       @relation(fields: [RoleId], references: [RoleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermission_Role")
+
+  @@id([RoleId, PermissionId], map: "PK_RolePermission")
+}
+
+model School {
+  SchoolId                                              BigInt           @id(map: "PK_School") @default(autoincrement())
+  SchoolCode                                            String?          @unique(map: "UQ_School_SchoolCode") @db.VarChar(8)
+  SchoolName                                            String           @db.NVarChar(200)
+  Address                                               String?          @db.NVarChar(300)
+  Email                                                 String?          @db.VarChar(100)
+  Phone                                                 String?          @db.VarChar(20)
+  IsActive                                              Boolean          @default(true, map: "DF_School_IsActive")
+  CreatedAt                                             DateTime         @default(dbgenerated("sysdatetime()"), map: "DF_School_CreatedAt")
+  UpdatedAt                                             DateTime?
+  AccessRequest_AccessRequest_OwnerSchoolIdToSchool     AccessRequest[]  @relation("AccessRequest_OwnerSchoolIdToSchool")
+  AccessRequest_AccessRequest_RequesterSchoolIdToSchool AccessRequest[]  @relation("AccessRequest_RequesterSchoolIdToSchool")
+  Category                                              Category[]
+  Collection                                            Collection[]
+  Conversation                                          Conversation[]
+  Document                                              Document[]
+  DocumentAccess                                        DocumentAccess[]
+  Notification                                          Notification[]
+  Tag                                                   Tag[]
+  User                                                  User[]
+}
+
+model Tag {
+  TagId       BigInt        @id(map: "PK_Tag") @default(autoincrement())
+  TagCode     String?       @unique(map: "UQ_Tag_TagCode") @db.VarChar(8)
+  SchoolId    BigInt?
+  TagName     String        @db.NVarChar(100)
+  DocumentTag DocumentTag[]
+  School      School?       @relation(fields: [SchoolId], references: [SchoolId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Tag_School")
+
+  @@index([SchoolId], map: "IX_Tag_SchoolId")
+}
+
+model User {
+  UserId                                            BigInt            @id(map: "PK_User") @default(autoincrement())
+  UserCode                                          String?           @unique(map: "UQ_User_UserCode") @db.VarChar(8)
+  SchoolId                                          BigInt?
+  Username                                          String            @unique(map: "UQ_User_Username") @db.VarChar(30)
+  Email                                             String?           @unique(map: "UQ_User_Email") @db.VarChar(100)
+  PasswordHash                                      String            @db.VarChar(255)
+  FullName                                          String            @db.NVarChar(25)
+  AvatarUrl                                         String?           @db.VarChar(500)
+  IsActive                                          Boolean           @default(true, map: "DF_User_IsActive")
+  CreatedAt                                         DateTime          @default(dbgenerated("sysdatetime()"), map: "DF_User_CreatedAt")
+  UpdatedAt                                         DateTime?
+  LastLoginAt                                       DateTime?
+  AccessRequest_AccessRequest_RequesterUserIdToUser AccessRequest[]   @relation("AccessRequest_RequesterUserIdToUser")
+  AccessRequest_AccessRequest_ReviewedByToUser      AccessRequest[]   @relation("AccessRequest_ReviewedByToUser")
+  Collection                                        Collection[]
+  Conversation                                      Conversation[]
+  Document                                          Document[]
+  DocumentAccess_DocumentAccess_GrantedByToUser     DocumentAccess[]  @relation("DocumentAccess_GrantedByToUser")
+  DocumentAccess_DocumentAccess_UserIdToUser        DocumentAccess[]  @relation("DocumentAccess_UserIdToUser")
+  DocumentFile                                      DocumentFile[]
+  DocumentVersion                                   DocumentVersion[]
+  DownloadHistory                                   DownloadHistory[]
+  Favorite                                          Favorite[]
+  Notification                                      Notification[]
+  ReadingHistory                                    ReadingHistory[]
+  School                                            School?           @relation(fields: [SchoolId], references: [SchoolId], onDelete: NoAction, onUpdate: NoAction, map: "FK_User_School")
+  UserRole                                          UserRole[]
+
+  @@index([SchoolId], map: "IX_User_SchoolId")
+}
+
+model UserRole {
+  UserId BigInt
+  RoleId BigInt
+  Role   Role   @relation(fields: [RoleId], references: [RoleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserRole_Role")
+  User   User   @relation(fields: [UserId], references: [UserId], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserRole_User")
+
+  @@id([UserId, RoleId], map: "PK_UserRole")
+}
+
+model Notification {
+  NotificationId BigInt   @id(map: "PK_Notification") @default(autoincrement())
+  UserId         BigInt?
+  SchoolId       BigInt?
+  Title          String   @db.NVarChar(200)
+  Message        String   @db.NVarChar(Max)
+  Type           String   @default("INFO") @db.VarChar(30)
+  IsRead         Boolean  @default(false)
+  Link           String?  @db.VarChar(500)
+  CreatedAt      DateTime @default(dbgenerated("sysdatetime()"))
+  School         School?  @relation(fields: [SchoolId], references: [SchoolId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Notification_School")
+  User           User?    @relation(fields: [UserId], references: [UserId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Notification_User")
+
+  @@index([UserId, IsRead], map: "IX_Notification_User_Read")
+  @@index([SchoolId], map: "IX_Notification_School")
+}
