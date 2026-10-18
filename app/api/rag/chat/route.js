@@ -9,6 +9,7 @@ import {
   calculateRRF,
 } from "@/lib/search/vector-utils";
 import { filterChunksForRAG } from "@/lib/rag/rag-access";
+import { generateRAGAnswer, isSmallTalk } from "@/lib/rag/llm-client";
 
 // Hàm chuyển đổi từ khóa mô phỏng vector truy vấn (Dimension = 4)
 function getQueryVectorDemo(query) {
@@ -110,97 +111,102 @@ export async function POST(request) {
     });
 
     // 3. Quy trình Truy xuất tài liệu (Retrieval Pipeline)
-    const chunks = await prisma.documentChunk.findMany({
-      where: {
-        Document: {
-          ...schoolFilter,
-          Status: "ACTIVE",
-        },
-      },
-      select: {
-        ChunkId: true,
-        DocumentId: true,
-        ChunkIndex: true,
-        PageNumber: true,
-        Content: true,
-        Document: {
-          select: {
-            Title: true,
-            DocumentCode: true,
-          },
-        },
-        Embedding: {
-          select: {
-            VectorData: true,
-          },
-        },
-      },
-    });
-
     let selectedContextChunks = [];
+    const isGreeting = isSmallTalk(query);
 
-    if (chunks.length > 0) {
-      // 3.1. Chấm điểm BM25
-      const bm25Docs = chunks.map((c) => ({
-        id: c.ChunkId.toString(),
-        text: c.Content,
-      }));
-      const bm25Ranked = calculateBM25(query, bm25Docs);
-
-      // 3.2. Chấm điểm Vector (Cosine Similarity)
-      const queryVec = getQueryVectorDemo(query);
-      const vectorScored = chunks
-        .filter((c) => c.Embedding && c.Embedding.length > 0)
-        .map((c) => ({
-          id: c.ChunkId.toString(),
-          similarity: cosineSimilarity(
-            queryVec,
-            bufferToFloatArray(c.Embedding[0].VectorData)
-          ),
-        }));
-      vectorScored.sort((a, b) => b.similarity - a.similarity);
-
-      // 3.3. Hợp nhất thứ hạng RRF
-      const rrfRanked = calculateRRF(bm25Ranked, vectorScored, 60);
-
-      // 3.4. Ghép lại dữ liệu đầy đủ cho từng chunk
-      const chunkMap = new Map(chunks.map((c) => [c.ChunkId.toString(), c]));
-      const candidateList = rrfRanked.map((item, idx) => {
-        const original = chunkMap.get(item.id);
-        return {
-          rank: idx + 1,
-          chunkId: original.ChunkId,
-          documentId: original.DocumentId,
-          documentTitle: original.Document.Title,
-          documentCode: original.Document.DocumentCode,
-          pageNumber: original.PageNumber,
-          content: original.Content,
-          score: item.rrfScore,
-        };
+    // Chỉ thực hiện truy xuất tài liệu nếu không phải câu chào hỏi xã giao
+    if (!isGreeting) {
+      const chunks = await prisma.documentChunk.findMany({
+        where: {
+          Document: {
+            ...schoolFilter,
+            Status: "ACTIVE",
+          },
+        },
+        select: {
+          ChunkId: true,
+          DocumentId: true,
+          ChunkIndex: true,
+          PageNumber: true,
+          Content: true,
+          Document: {
+            select: {
+              Title: true,
+              DocumentCode: true,
+            },
+          },
+          Embedding: {
+            select: {
+              VectorData: true,
+            },
+          },
+        },
       });
 
-      // 3.5. Kiểm duyệt bản quyền cho RAG qua module 7.1
-      const authorizedList = await filterChunksForRAG(candidateList, user);
-      selectedContextChunks = authorizedList.slice(0, topK);
+      if (chunks.length > 0) {
+        // 3.1. Chấm điểm BM25
+        const bm25Docs = chunks.map((c) => ({
+          id: c.ChunkId.toString(),
+          text: c.Content,
+        }));
+        const bm25Ranked = calculateBM25(query, bm25Docs);
+
+        // 3.2. Chấm điểm Vector (Cosine Similarity)
+        const queryVec = getQueryVectorDemo(query);
+        const vectorScored = chunks
+          .filter((c) => c.Embedding && c.Embedding.length > 0)
+          .map((c) => ({
+            id: c.ChunkId.toString(),
+            similarity: cosineSimilarity(
+              queryVec,
+              bufferToFloatArray(c.Embedding[0].VectorData)
+            ),
+          }));
+        vectorScored.sort((a, b) => b.similarity - a.similarity);
+
+        // 3.3. Hợp nhất thứ hạng RRF
+        const rrfRanked = calculateRRF(bm25Ranked, vectorScored, 60);
+
+        // 3.4. Ghép lại dữ liệu đầy đủ cho từng chunk
+        const chunkMap = new Map(chunks.map((c) => [c.ChunkId.toString(), c]));
+        const candidateList = rrfRanked.map((item, idx) => {
+          const original = chunkMap.get(item.id);
+          return {
+            rank: idx + 1,
+            chunkId: original.ChunkId,
+            documentId: original.DocumentId,
+            documentTitle: original.Document.Title,
+            documentCode: original.Document.DocumentCode,
+            pageNumber: original.PageNumber,
+            content: original.Content,
+            score: item.rrfScore,
+          };
+        });
+
+        // 3.5. Kiểm duyệt bản quyền cho RAG qua module 7.1
+        const authorizedList = await filterChunksForRAG(candidateList, user);
+        selectedContextChunks = authorizedList.slice(0, topK);
+      }
     }
 
-    // 4. Sinh câu trả lời có định dạng trích dẫn học thuật
-    let answerText = "";
-    if (selectedContextChunks.length === 0) {
-      answerText = "Thư viện số chưa có tài liệu phù hợp hoặc được cấp phép để trả lời nội dung này.";
-    } else {
-      const citationsSummary = selectedContextChunks
-        .map(
-          (c, idx) =>
-            `[Nguồn ${idx + 1}] Tài liệu: "${c.documentTitle}" (Trang ${c.pageNumber || "N/A"})\n"${c.content}"`
-        )
-        .join("\n\n");
+    // 4. Lấy ngữ cảnh lịch sử trò chuyện & Sinh câu trả lời RAG thông minh (như ChatGPT/Gemini)
+    const previousMessages = await prisma.conversationMessage.findMany({
+      where: {
+        ConversationId: activeConversation.ConversationId,
+      },
+      orderBy: { CreatedAt: "asc" },
+      take: 6,
+    });
+    const history = previousMessages.map((m) => ({
+      role: m.Role.toLowerCase() === "user" ? "user" : "assistant",
+      content: m.Content,
+    }));
 
-      answerText =
-        `Dựa trên các tài liệu chính thức trong thư viện số EduLib AI:\n\n` +
-        citationsSummary +
-        `\n\nNội dung trên giải thích trực tiếp cho thắc mắc của bạn với đầy đủ căn cứ tài liệu.`;
-    }
+    const answerText = await generateRAGAnswer(
+      query,
+      selectedContextChunks,
+      history
+    );
 
     // 5. Lưu câu trả lời của Trợ lý vào bảng ConversationMessage
     const assistantMessage = await prisma.conversationMessage.create({
@@ -211,7 +217,7 @@ export async function POST(request) {
       },
     });
 
-    // 6. Ghi vết nguồn tham khảo vào bảng MessageSource
+    // 6. Ghi vết nguồn tham khảo vào bảng MessageSource (nếu có tài liệu trích xuất)
     if (selectedContextChunks.length > 0) {
       for (let i = 0; i < selectedContextChunks.length; i++) {
         const item = selectedContextChunks[i];
@@ -229,23 +235,28 @@ export async function POST(request) {
       }
     }
 
-    // 7. Trả về client (chuyển đổi BigInt sang String để serialize JSON)
+    // Định dạng danh sách nguồn tài liệu đồng bộ cho giao diện
+    const formattedCitations = selectedContextChunks.map((c, idx) => ({
+      sourceNumber: idx + 1,
+      chunkId: c.chunkId.toString(),
+      documentId: c.documentId.toString(),
+      documentCode: c.documentCode,
+      documentTitle: c.documentTitle,
+      pageNumber: c.pageNumber,
+      score: c.score,
+      snippet: c.content,
+    }));
+
+    // 7. Trả về client (cả citations và sources để tương thích hoàn toàn giao diện)
     return NextResponse.json({
       success: true,
       conversationId: activeConversation.ConversationId.toString(),
       messageId: assistantMessage.MessageId.toString(),
       answer: answerText,
-      citations: selectedContextChunks.map((c, idx) => ({
-        sourceNumber: idx + 1,
-        chunkId: c.chunkId.toString(),
-        documentId: c.documentId.toString(),
-        documentCode: c.documentCode,
-        documentTitle: c.documentTitle,
-        pageNumber: c.pageNumber,
-        score: c.score,
-        snippet: c.content,
-      })),
+      citations: formattedCitations,
+      sources: formattedCitations,
     });
+
   } catch (error) {
     if (
       error.message === "UNAUTHORIZED" ||
