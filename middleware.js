@@ -56,29 +56,48 @@ export async function middleware(request) {
 
     // Nếu vào lại trang /login hoặc trang chủ / -> tự động chuyển hướng theo đúng vai trò
     if (pathname === "/login" || pathname === "/") {
-      const targetUrl = isSuperAdmin
-        ? "/admin"
-        : isSchoolAdmin
-        ? "/school-admin"
-        : "/login";
-      return NextResponse.redirect(new URL(targetUrl, request.url));
+      if (isSuperAdmin) {
+        return NextResponse.redirect(new URL("/admin", request.url));
+      }
+      if (isSchoolAdmin) {
+        return NextResponse.redirect(new URL("/school-admin", request.url));
+      }
+
+      // Nếu đã có cookie token nhưng không có vai trò quản trị (hoặc token cũ/rỗng vai trò):
+      // TUYỆT ĐỐI KHÔNG redirect lại về /login vì sẽ gây vòng lặp chuyển hướng vô tận (ERR_TOO_MANY_REDIRECTS)!
+      // Xóa cookie cũ không hợp lệ và cho phép hiển thị trang /login sạch để người dùng đăng nhập lại
+      const response = NextResponse.next();
+      response.cookies.delete("access_token");
+      response.cookies.delete("accessToken");
+      response.cookies.delete("refresh_token");
+      return response;
     }
 
     // 1. Phân luồng vùng /admin: CHỈ DÀNH CHO SUPER_ADMIN
     if (pathname.startsWith("/admin")) {
       if (!isSuperAdmin) {
-        // SchoolAdmin cố vào /admin sẽ bị chuyển hướng ngay về /school-admin
-        const redirectUrl = isSchoolAdmin ? "/school-admin" : "/login";
-        return NextResponse.redirect(new URL(redirectUrl, request.url));
+        if (isSchoolAdmin) {
+          return NextResponse.redirect(new URL("/school-admin", request.url));
+        }
+        const loginUrl = new URL("/login", request.url);
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete("access_token");
+        response.cookies.delete("accessToken");
+        return response;
       }
     }
 
     // 2. Phân luồng vùng /school-admin: CHỈ DÀNH CHO SCHOOL_ADMIN
     if (pathname.startsWith("/school-admin")) {
       if (!isSchoolAdmin) {
-        // SuperAdmin cố vào /school-admin sẽ chuyển về /admin
-        const redirectUrl = isSuperAdmin ? "/admin" : "/login";
-        return NextResponse.redirect(new URL(redirectUrl, request.url));
+        if (isSuperAdmin) {
+          return NextResponse.redirect(new URL("/admin", request.url));
+        }
+        const loginUrl = new URL("/login", request.url);
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete("access_token");
+        response.cookies.delete("accessToken");
+        return response;
       }
     }
 
@@ -96,6 +115,11 @@ export async function middleware(request) {
     }
 
     // Chặn các trang web thông thường: redirect về /login kèm lưu vết callbackUrl
+    // Tránh redirect nếu đang ở /login
+    if (pathname === "/login") {
+      return NextResponse.next();
+    }
+
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
 
