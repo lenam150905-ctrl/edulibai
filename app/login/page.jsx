@@ -44,33 +44,78 @@ export default function LoginPage() {
         return;
       }
 
-      // 1. Kiểm tra vai trò từ kết quả trả về của API (hỗ trợ cả Roles dạng mảng Object lẫn roles chuỗi)
-      const rawRoles = result.user?.Roles || result.user?.roles || [];
-      const roleCodes = rawRoles.map((r) => (typeof r === "string" ? r : r.RoleCode || r.roleCode));
-      const isSuperAdmin =
-        roleCodes.includes("SUPER_ADMIN") ||
-        result.user?.role === "SUPER_ADMIN" ||
-        result.data?.role === "SUPER_ADMIN";
-      const isSchoolAdmin =
-        roleCodes.includes("SCHOOL_ADMIN") ||
-        result.user?.role === "SCHOOL_ADMIN" ||
-        result.data?.role === "SCHOOL_ADMIN";
-      const isAdmin = isSuperAdmin || isSchoolAdmin;
 
-      // 2. Xác định đích đến chuẩn xác theo vai trò
+      // 1. Đọc vai trò từ kết quả đăng nhập
+      const rawRoles =
+        result.user?.Roles ??
+        result.user?.roles ??
+        result.user?.roles?.map?.((r) => r) ??
+        [];
+
+      const roleCodes = (
+        Array.isArray(rawRoles) ? rawRoles : [rawRoles]
+      )
+        .map((r) =>
+          typeof r === "string"
+            ? r
+            : r?.RoleCode ?? r?.roleCode ?? r?.RoleName ?? r?.roleName
+        )
+        .filter(Boolean);
+
+      const userRole =
+        result.user?.role ??
+        result.data?.role ??
+        result.user?.Role ??
+        "";
+
+      const allRoles = [...roleCodes, userRole].map((r) =>
+        String(r).toUpperCase()
+      );
+
+      const isSuperAdmin = allRoles.some((r) =>
+        ["SUPER_ADMIN", "SUPERADMIN"].includes(r)
+      );
+
+      const isSchoolAdmin = allRoles.some((r) =>
+        ["SCHOOL_ADMIN", "SCHOOLADMIN"].includes(r)
+      );
+
+      const isStudent = allRoles.some((r) =>
+        ["STUDENT", "SINHVIEN", "SINH_VIEN", "NGUOIDUNG"].includes(r)
+      );
+
+      // 2. Chọn trang đích
       const urlParams = new URLSearchParams(window.location.search);
       const callbackUrl = urlParams.get("callbackUrl");
 
-      let targetUrl = "/";
+      let targetUrl;
+
       if (isSuperAdmin) {
-        // SuperAdmin chỉ vào khu vực /admin
-        targetUrl = callbackUrl && callbackUrl.startsWith("/admin") ? callbackUrl : "/admin";
+        targetUrl =
+          callbackUrl?.startsWith("/admin") ? callbackUrl : "/admin";
       } else if (isSchoolAdmin) {
-        // SchoolAdmin chỉ vào khu vực /school-admin
-        targetUrl = callbackUrl && callbackUrl.startsWith("/school-admin") ? callbackUrl : "/school-admin";
+        targetUrl =
+          callbackUrl?.startsWith("/school-admin")
+            ? callbackUrl
+            : "/school-admin";
+      } else if (isStudent) {
+        targetUrl =
+          callbackUrl?.startsWith("/student")
+            ? callbackUrl
+            : "/student";
+      } else {
+        console.error("Không xác định được vai trò:", {
+          user: result.user,
+          data: result.data,
+        });
+
+        setError("Đăng nhập thành công nhưng không xác định được vai trò tài khoản.");
+        return;
       }
 
-      // 3. Dùng window.location.replace để chuyển hướng và làm mới session hoàn toàn
+      console.log("Vai trò đăng nhập:", allRoles);
+      console.log("Trang sẽ chuyển đến:", targetUrl);
+
       window.location.replace(targetUrl);
     } catch {
       setError("Không thể kết nối máy chủ. Vui lòng thử lại.");

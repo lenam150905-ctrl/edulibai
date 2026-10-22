@@ -35,6 +35,8 @@ export async function POST(request) {
         School: true,
       },
     });
+    console.log("USERNAME NHAN DUOC:", JSON.stringify(username));
+console.log("CO TIM THAY USER:", Boolean(user));
 
     if (!user) {
       return NextResponse.json(
@@ -60,6 +62,7 @@ export async function POST(request) {
       password,
       user.PasswordHash
     );
+    console.log("MAT KHAU KHOP:", passwordValid);
 
     if (!passwordValid) {
       return NextResponse.json(

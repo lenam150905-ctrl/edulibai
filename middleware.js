@@ -49,26 +49,24 @@ export async function middleware(request) {
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
   // 3. NẾU ĐÃ ĐĂNG NHẬP
+  // 3. NẾU ĐÃ ĐĂNG NHẬP
   if (userPayload) {
     const roles = userPayload.roles || (userPayload.role ? [userPayload.role] : []);
     const isSuperAdmin = roles.includes("SUPER_ADMIN");
     const isSchoolAdmin = roles.includes("SCHOOL_ADMIN");
+    const isStudent = roles.includes("STUDENT");
 
-    // Nếu vào lại trang /login hoặc trang chủ / -> tự động chuyển hướng theo đúng vai trò
-    if (pathname === "/login" || pathname === "/") {
-      const targetUrl = isSuperAdmin
-        ? "/admin"
-        : isSchoolAdmin
-        ? "/school-admin"
-        : "/login";
-      return NextResponse.redirect(new URL(targetUrl, request.url));
-    }
+   if (pathname === "/login" || pathname === "/") {
+  if (isSuperAdmin) return NextResponse.redirect(new URL("/admin", request.url));
+  if (isSchoolAdmin) return NextResponse.redirect(new URL("/school-admin", request.url));
+  if (isStudent) return NextResponse.redirect(new URL("/student", request.url));
+  return NextResponse.next(); // Không khớp role thì cho qua chứ không redirect
+}
 
     // 1. Phân luồng vùng /admin: CHỈ DÀNH CHO SUPER_ADMIN
     if (pathname.startsWith("/admin")) {
       if (!isSuperAdmin) {
-        // SchoolAdmin cố vào /admin sẽ bị chuyển hướng ngay về /school-admin
-        const redirectUrl = isSchoolAdmin ? "/school-admin" : "/login";
+        const redirectUrl = isSchoolAdmin ? "/school-admin" : isStudent ? "/student" : "/login";
         return NextResponse.redirect(new URL(redirectUrl, request.url));
       }
     }
@@ -76,15 +74,21 @@ export async function middleware(request) {
     // 2. Phân luồng vùng /school-admin: CHỈ DÀNH CHO SCHOOL_ADMIN
     if (pathname.startsWith("/school-admin")) {
       if (!isSchoolAdmin) {
-        // SuperAdmin cố vào /school-admin sẽ chuyển về /admin
-        const redirectUrl = isSuperAdmin ? "/admin" : "/login";
+        const redirectUrl = isSuperAdmin ? "/admin" : isStudent ? "/student" : "/login";
         return NextResponse.redirect(new URL(redirectUrl, request.url));
+      }
+    }
+
+    // 3. Phân luồng vùng /student: DÀNH CHO SINH VIÊN (hoặc Admin kiểm thử)
+    if (pathname.startsWith("/student")) {
+      // Cho phép Sinh viên, hoặc Super Admin / School Admin vào xem giao diện sinh viên
+      if (!isStudent && !isSuperAdmin && !isSchoolAdmin) {
+        return NextResponse.redirect(new URL("/login", request.url));
       }
     }
 
     return NextResponse.next();
   }
-
   // 4. NẾU CHƯA ĐĂNG NHẬP (KHÔNG CÓ TOKEN HỢP LỆ HOẶC TOKEN ĐÃ HẾT HẠN)
   if (!isPublicPath) {
     // Chặn các route API: trả về 401 JSON để client interceptor TokenAutoRefresher tự động gọi /api/auth/refresh
