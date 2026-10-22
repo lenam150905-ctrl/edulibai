@@ -49,61 +49,51 @@ export async function middleware(request) {
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
   // 3. NẾU ĐÃ ĐĂNG NHẬP
+  // 3. NẾU ĐÃ ĐĂNG NHẬP
   if (userPayload) {
     const roles = userPayload.roles || (userPayload.role ? [userPayload.role] : []);
     const isSuperAdmin = roles.includes("SUPER_ADMIN");
     const isSchoolAdmin = roles.includes("SCHOOL_ADMIN");
+    const isStudent = roles.includes("STUDENT");
 
     // Nếu vào lại trang /login hoặc trang chủ / -> tự động chuyển hướng theo đúng vai trò
     if (pathname === "/login" || pathname === "/") {
-      if (isSuperAdmin) {
-        return NextResponse.redirect(new URL("/admin", request.url));
-      }
-      if (isSchoolAdmin) {
-        return NextResponse.redirect(new URL("/school-admin", request.url));
-      }
-
-      // Nếu đã có cookie token nhưng không có vai trò quản trị (hoặc token cũ/rỗng vai trò):
-      // TUYỆT ĐỐI KHÔNG redirect lại về /login vì sẽ gây vòng lặp chuyển hướng vô tận (ERR_TOO_MANY_REDIRECTS)!
-      // Xóa cookie cũ không hợp lệ và cho phép hiển thị trang /login sạch để người dùng đăng nhập lại
-      const response = NextResponse.next();
-      response.cookies.delete("access_token");
-      response.cookies.delete("accessToken");
-      response.cookies.delete("refresh_token");
-      return response;
+      const targetUrl = isSuperAdmin
+        ? "/admin"
+        : isSchoolAdmin
+        ? "/school-admin"
+        : "/login";
+      return NextResponse.redirect(new URL(targetUrl, request.url));
     }
 
     // 1. Phân luồng vùng /admin: CHỈ DÀNH CHO SUPER_ADMIN
     if (pathname.startsWith("/admin")) {
       if (!isSuperAdmin) {
-        if (isSchoolAdmin) {
-          return NextResponse.redirect(new URL("/school-admin", request.url));
-        }
-        const loginUrl = new URL("/login", request.url);
-        const response = NextResponse.redirect(loginUrl);
-        response.cookies.delete("access_token");
-        response.cookies.delete("accessToken");
-        return response;
+        // SchoolAdmin cố vào /admin sẽ bị chuyển hướng ngay về /school-admin
+        const redirectUrl = isSchoolAdmin ? "/school-admin" : "/login";
+        return NextResponse.redirect(new URL(redirectUrl, request.url));
       }
     }
 
     // 2. Phân luồng vùng /school-admin: CHỈ DÀNH CHO SCHOOL_ADMIN
     if (pathname.startsWith("/school-admin")) {
       if (!isSchoolAdmin) {
-        if (isSuperAdmin) {
-          return NextResponse.redirect(new URL("/admin", request.url));
-        }
-        const loginUrl = new URL("/login", request.url);
-        const response = NextResponse.redirect(loginUrl);
-        response.cookies.delete("access_token");
-        response.cookies.delete("accessToken");
-        return response;
+        // SuperAdmin cố vào /school-admin sẽ chuyển về /admin
+        const redirectUrl = isSuperAdmin ? "/admin" : "/login";
+        return NextResponse.redirect(new URL(redirectUrl, request.url));
+      }
+    }
+
+    // 3. Phân luồng vùng /student: DÀNH CHO SINH VIÊN (hoặc Admin kiểm thử)
+    if (pathname.startsWith("/student")) {
+      // Cho phép Sinh viên, hoặc Super Admin / School Admin vào xem giao diện sinh viên
+      if (!isStudent && !isSuperAdmin && !isSchoolAdmin) {
+        return NextResponse.redirect(new URL("/login", request.url));
       }
     }
 
     return NextResponse.next();
   }
-
   // 4. NẾU CHƯA ĐĂNG NHẬP (KHÔNG CÓ TOKEN HỢP LỆ HOẶC TOKEN ĐÃ HẾT HẠN)
   if (!isPublicPath) {
     // Chặn các route API: trả về 401 JSON để client interceptor TokenAutoRefresher tự động gọi /api/auth/refresh
