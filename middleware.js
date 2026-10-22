@@ -56,17 +56,21 @@ export async function middleware(request) {
     const isSchoolAdmin = roles.includes("SCHOOL_ADMIN");
     const isStudent = roles.includes("STUDENT");
 
-   if (pathname === "/login" || pathname === "/") {
-  if (isSuperAdmin) return NextResponse.redirect(new URL("/admin", request.url));
-  if (isSchoolAdmin) return NextResponse.redirect(new URL("/school-admin", request.url));
-  if (isStudent) return NextResponse.redirect(new URL("/student", request.url));
-  return NextResponse.next(); // Không khớp role thì cho qua chứ không redirect
-}
+    // Nếu vào lại trang /login hoặc trang chủ / -> tự động chuyển hướng theo đúng vai trò
+    if (pathname === "/login" || pathname === "/") {
+      const targetUrl = isSuperAdmin
+        ? "/admin"
+        : isSchoolAdmin
+        ? "/school-admin"
+        : "/login";
+      return NextResponse.redirect(new URL(targetUrl, request.url));
+    }
 
     // 1. Phân luồng vùng /admin: CHỈ DÀNH CHO SUPER_ADMIN
     if (pathname.startsWith("/admin")) {
       if (!isSuperAdmin) {
-        const redirectUrl = isSchoolAdmin ? "/school-admin" : isStudent ? "/student" : "/login";
+        // SchoolAdmin cố vào /admin sẽ bị chuyển hướng ngay về /school-admin
+        const redirectUrl = isSchoolAdmin ? "/school-admin" : "/login";
         return NextResponse.redirect(new URL(redirectUrl, request.url));
       }
     }
@@ -74,7 +78,8 @@ export async function middleware(request) {
     // 2. Phân luồng vùng /school-admin: CHỈ DÀNH CHO SCHOOL_ADMIN
     if (pathname.startsWith("/school-admin")) {
       if (!isSchoolAdmin) {
-        const redirectUrl = isSuperAdmin ? "/admin" : isStudent ? "/student" : "/login";
+        // SuperAdmin cố vào /school-admin sẽ chuyển về /admin
+        const redirectUrl = isSuperAdmin ? "/admin" : "/login";
         return NextResponse.redirect(new URL(redirectUrl, request.url));
       }
     }
@@ -100,6 +105,11 @@ export async function middleware(request) {
     }
 
     // Chặn các trang web thông thường: redirect về /login kèm lưu vết callbackUrl
+    // Tránh redirect nếu đang ở /login
+    if (pathname === "/login") {
+      return NextResponse.next();
+    }
+
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
 
