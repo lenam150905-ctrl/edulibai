@@ -50,7 +50,7 @@ export async function GET(request) {
     let conversations = [];
     let downloads = [];
     let reading = [];
-    let favorites = [];
+    let favourites = [];
 
     // 1. LẤY HỘI THOẠI / LỊCH SỬ TÌM KIẾM RAG
     if (tab === "all" || tab === "conversations") {
@@ -260,7 +260,7 @@ export async function GET(request) {
           : {}),
       };
 
-      const rawFavorites = await prisma.favorite.findMany({
+      const rawFavourites = await prisma.favorite.findMany({
         where: favWhere,
         include: {
           User: {
@@ -302,13 +302,13 @@ export async function GET(request) {
         conversations,
         downloads,
         reading,
-        favorites,
+        favourites,
       },
       counts: {
         conversations: conversations.length,
         downloads: downloads.length,
         reading: reading.length,
-        favorites: favorites.length,
+        favourites: favourites.length,
       },
     });
   } catch (error) {

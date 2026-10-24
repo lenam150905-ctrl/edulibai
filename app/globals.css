@@ -1,14 +1,106 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F8F9FA;
-  --foreground: #2D3748;
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+
+  --color-accent: #B7F34A;
+  --color-accent-hover: #A3E635;
+  --color-accent-text: #0F172A;
+
+  --color-sidebar: #0F172A;
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+
+  --color-text: #0F172A;
+  --color-text-muted: #1daed6;
+
+  --radius-card: 16px;
+  --radius-button: 10px;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border: none;
+  border-radius: var(--radius-button);
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+
+
+.school-tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  z-index: 99999;
+}
+
+.school-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  max-width: 190px;
+  padding: 0 12px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.school-name {
+  max-width: 115px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.school-code {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgb(59 130 246 / 15%);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.school-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: max-content;
+  max-width: min(400px, 90vw);
+  padding: 16px;
+  border: 1px solid;
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgb(0 0 0 / 20%);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  z-index: 99999;
+}
+
+.school-tooltip-wrapper:hover .school-tooltip,
+.school-tooltip-wrapper:focus-within .school-tooltip {
+  display: block;
 }

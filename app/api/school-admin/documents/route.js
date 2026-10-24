@@ -127,7 +127,7 @@ export async function GET(request) {
         stats: {
           chunksCount: doc._count?.DocumentChunk || 0,
           downloadsCount: doc._count?.DownloadHistory || 0,
-          favoritesCount: doc._count?.Favorite || 0,
+          favouritesCount: doc._count?.Favorite || 0,
         },
       };
     });

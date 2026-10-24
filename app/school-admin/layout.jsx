@@ -176,24 +176,50 @@ function SchoolAdminLayoutContent({ children }) {
             </nav>
           </div>
 
-          {/* BANNER THÔNG TIN TRƯỜNG */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-100 rounded-2xl p-4 text-center">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF9800] to-[#E65100] mx-auto flex items-center justify-center p-1.5 mb-2 shadow-xs">
-              <svg viewBox="0 0 48 48" fill="none" className="w-full h-full" aria-hidden="true">
-                <path d="M4 13 23 4l20 9v25L24 46 4 37V13Z" fill="#F7C844" />
-                <path d="M24 12 8 19v17l16 7V12Z" fill="#FBE28A" />
-                <path d="M24 12 40 19v17l-16 7V12Z" fill="#F29B17" />
-                <path d="M24 12 8 19l16 8 16-8-16-7Z" fill="#FFF0B3" />
-                <path d="M24 27v16" stroke="#D98512" strokeWidth="1.5" />
-              </svg>
-            </div>
-            <p className="text-xs font-bold text-gray-800">
-              {currentUser?.School?.SchoolName || "Cơ sở trường học"}
-            </p>
-            <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
-              Quản trị tài khoản & học liệu số thư viện trường
-            </p>
-          </div>
+
+         
+{/* THÔNG TIN TRƯỜNG */}
+
+{/* THÔNG TIN TRƯỜNG */}
+<div className="school-tooltip-wrapper">
+  <div
+    className="school-badge"
+    style={{
+      color: isDark ? "#dbeafe" : "#1e3a8a",
+      backgroundColor: isDark ? "#172554" : "#eff6ff",
+      borderColor: isDark ? "#1e40af" : "#bfdbfe",
+    }}
+  >
+    <span aria-hidden="true">🎓</span>
+
+    <span className="school-name">
+      {currentUser?.School?.SchoolName || "EduLib University"}
+    </span>
+
+    <span className="school-code">
+      {currentUser?.School?.SchoolCode || "SINH VIÊN"}
+    </span>
+  </div>
+
+  <div
+    className="school-tooltip"
+    style={{
+      color: isDark ? "#f8fafc" : "#0f172a",
+      backgroundColor: isDark ? "#0f172a" : "#ffffff",
+      borderColor: isDark ? "#475569" : "#cbd5e1",
+    }}
+  >
+    <p className="font-bold">
+      {currentUser?.School?.SchoolName || "EduLib University"}
+    </p>
+
+    <p className="mt-2 text-xs">
+      {t("Mã trường", "School code")}:{" "}
+      {currentUser?.School?.SchoolCode || "SINH VIÊN"}
+    </p>
+  </div>
+</div>
+
         </aside>
 
         {/* NỘI DUNG CHÍNH */}

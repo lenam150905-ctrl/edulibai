@@ -1,0 +1,162 @@
+{
+  "experimentDate": "2026-10-23T03:46:58.171Z",
+  "datasetInfo": {
+    "totalChunksInDatabase": 5,
+    "totalTestQueries": 3,
+    "evaluationDepth_K": 5
+  },
+  "summaryMetrics": {
+    "BM25": {
+      "Mean_Precision_At_5": 0.3333,
+      "Mean_Recall_At_5": 1,
+      "MRR": 1
+    },
+    "Vector": {
+      "Mean_Precision_At_5": 0.3333,
+      "Mean_Recall_At_5": 1,
+      "MRR": 1
+    },
+    "Hybrid_Linear": {
+      "Mean_Precision_At_5": 0.3333,
+      "Mean_Recall_At_5": 1,
+      "MRR": 1
+    },
+    "Hybrid_RRF": {
+      "Mean_Precision_At_5": 0.3333,
+      "Mean_Recall_At_5": 1,
+      "MRR": 1
+    },
+    "Hybrid_RRF_Reranker": {
+      "Mean_Precision_At_5": 0.3333,
+      "Mean_Recall_At_5": 1,
+      "MRR": 1
+    }
+  },
+  "detailedPerQuery": {
+    "BM25": {
+      "precisionSum": 1,
+      "recallSum": 3,
+      "mrrSum": 3,
+      "details": [
+        {
+          "queryId": "Q1",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q2",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q3",
+          "pAt5": 0.2,
+          "rAt5": 1,
+          "mrr": 1
+        }
+      ]
+    },
+    "Vector": {
+      "precisionSum": 1,
+      "recallSum": 3,
+      "mrrSum": 3,
+      "details": [
+        {
+          "queryId": "Q1",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q2",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q3",
+          "pAt5": 0.2,
+          "rAt5": 1,
+          "mrr": 1
+        }
+      ]
+    },
+    "Hybrid_Linear": {
+      "precisionSum": 1,
+      "recallSum": 3,
+      "mrrSum": 3,
+      "details": [
+        {
+          "queryId": "Q1",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q2",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q3",
+          "pAt5": 0.2,
+          "rAt5": 1,
+          "mrr": 1
+        }
+      ]
+    },
+    "Hybrid_RRF": {
+      "precisionSum": 1,
+      "recallSum": 3,
+      "mrrSum": 3,
+      "details": [
+        {
+          "queryId": "Q1",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q2",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q3",
+          "pAt5": 0.2,
+          "rAt5": 1,
+          "mrr": 1
+        }
+      ]
+    },
+    "Hybrid_RRF_Reranker": {
+      "precisionSum": 1,
+      "recallSum": 3,
+      "mrrSum": 3,
+      "details": [
+        {
+          "queryId": "Q1",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q2",
+          "pAt5": 0.4,
+          "rAt5": 1,
+          "mrr": 1
+        },
+        {
+          "queryId": "Q3",
+          "pAt5": 0.2,
+          "rAt5": 1,
+          "mrr": 1
+        }
+      ]
+    }
+  }
+}
